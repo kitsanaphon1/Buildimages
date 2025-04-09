@@ -12,12 +12,16 @@ pipeline {
       }
     }
 
-    stage('Build & Deploy') {
+    stage('Build Image') {
       steps {
-        sh '''
-          docker-compose down || true
-          docker-compose up -d --build
-        '''
+        sh 'docker build --network=host -t my-webapi .'
+      }
+    }
+
+    stage('Deploy with Compose') {
+      steps {
+        sh 'docker-compose down || true'
+        sh 'docker-compose up -d'
       }
     }
   }
