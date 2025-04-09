@@ -2,7 +2,7 @@ pipeline {
   agent any
 
   environment {
-    COMPOSE_PROJECT_NAME = "webapi-project"
+    COMPOSE_PROJECT_NAME = "webapi"
   }
 
   stages {
@@ -12,16 +12,13 @@ pipeline {
       }
     }
 
-    stage('Build Image') {
+    stage('Build & Deploy') {
       steps {
-        sh 'docker build --network=host -t my-webapi .'
-      }
-    }
-
-    stage('Deploy with Compose') {
-      steps {
-        sh 'docker-compose down || true'
-        sh 'docker-compose up -d'
+        sh '''
+          DOCKER_BUILDKIT=0 docker build --progress=plain -t my-webapi .
+          docker-compose down || true
+          docker-compose up -d
+        '''
       }
     }
   }
