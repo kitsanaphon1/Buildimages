@@ -3247,11 +3247,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "D:\\devc#\\MySolution\\WebApiProject\\WebApiProject.csproj",
+      "projectUniqueName": "D:\\Devops tools\\Jenkins version2\\MySolution\\WebApiProject\\WebApiProject.csproj",
       "projectName": "WebApiProject",
-      "projectPath": "D:\\devc#\\MySolution\\WebApiProject\\WebApiProject.csproj",
+      "projectPath": "D:\\Devops tools\\Jenkins version2\\MySolution\\WebApiProject\\WebApiProject.csproj",
       "packagesPath": "C:\\Users\\cholw\\.nuget\\packages\\",
-      "outputPath": "D:\\devc#\\MySolution\\WebApiProject\\obj\\",
+      "outputPath": "D:\\Devops tools\\Jenkins version2\\MySolution\\WebApiProject\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\cholw\\AppData\\Roaming\\NuGet\\NuGet.Config",

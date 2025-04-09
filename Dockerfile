@@ -1,21 +1,23 @@
-# ใช้ .NET 9 SDK เพื่อ build โค้ด
-FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+# ⚙️ Build Stage
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /app
 
-# คัดลอกไฟล์และ restore dependencies
-COPY WebApiProject.csproj .
-RUN dotnet restore
+# ✅ COPY แค่ .csproj ก่อน เพื่อให้ cache dotnet restore ได้
+COPY WebApiProject.csproj ./
 
-# คัดลอกไฟล์ทั้งหมดและ build
+# ✅ แสดงชัดเจนว่ากำลัง restore
+RUN echo ">> RUNNING DOTNET RESTORE..." && \
+    dotnet restore --verbosity normal
+
+# ✅ COPY ไฟล์อื่น ๆ ภายหลัง
 COPY . .
-RUN dotnet publish -c Release -o out
 
-# ใช้ .NET 9 Runtime สำหรับรันแอป
-FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS runtime
+# ✅ Build
+RUN dotnet publish -c Release -o /app/out
+
+# 🐳 Runtime Stage
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
 WORKDIR /app
-COPY --from=build /app/out .
+COPY --from=build /app/out ./
 
-# ระบุพอร์ตที่ต้องการ expose
-ENV ASPNETCORE_URLS=http://+:80
-EXPOSE 80
 ENTRYPOINT ["dotnet", "WebApiProject.dll"]
