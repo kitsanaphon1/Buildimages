@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        IMAGE_NAME = 'sooyaa02/testbuildimages'  // เปลี่ยนเป็นชื่อ Docker Hub ของคุณ
+        IMAGE_NAME = 'sooyaa02/testbuildimages'
         TAG = 'latest'
     }
 
@@ -15,19 +15,22 @@ pipeline {
 
         stage('Build Docker image') {
             steps {
-                script {
-                    docker.build("${IMAGE_NAME}:${TAG}")
+                // เพิ่ม --network=host เพื่อให้ container ใช้ network เดียวกับ host
+                sh "docker build --network=host -t ${IMAGE_NAME}:${TAG} ."
+            }
+        }
+
+        stage('Login to Docker Hub') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'docker-hub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
                 }
             }
         }
 
         stage('Push to Docker Hub') {
             steps {
-                withDockerRegistry([credentialsId: 'docker-hub-creds', url: '']) {
-                    script {
-                        docker.image("${IMAGE_NAME}:${TAG}").push()
-                    }
-                }
+                sh "docker push ${IMAGE_NAME}:${TAG}"
             }
         }
     }
