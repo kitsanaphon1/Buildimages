@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        IMAGE_NAME = 'sooyaa02/testbuildimages'
+        IMAGE_NAME = 'kitsanaphon1/buildimages'
         TAG = 'latest'
     }
 
@@ -15,14 +15,20 @@ pipeline {
 
         stage('Build Docker image') {
             steps {
-                // เพิ่ม --network=host เพื่อให้ container ใช้ network เดียวกับ host
+                // ให้ใช้ network host เพื่อให้ container ออกเน็ตได้
                 sh "docker build --network=host -t ${IMAGE_NAME}:${TAG} ."
             }
         }
 
         stage('Login to Docker Hub') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'docker-hub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: '12345',  // 👈 ID ที่คุณตั้งไว้ใน Jenkins
+                        usernameVariable: 'DOCKER_USER',
+                        passwordVariable: 'DOCKER_PASS'
+                    )
+                ]) {
                     sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
                 }
             }
