@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "8UJveSoisq8=",
+  "dgSpecHash": "HPf5xr8U68M=",
   "success": true,
-  "projectFilePath": "D:\\Devops tools\\Jenkins version2\\version pull images\\WebApiProject\\WebApiProject.csproj",
+  "projectFilePath": "D:\\Devops tools\\jenkins version azure\\WebApiProject\\WebApiProject.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\cholw\\.nuget\\packages\\humanizer.core\\2.14.1\\humanizer.core.2.14.1.nupkg.sha512",
     "C:\\Users\\cholw\\.nuget\\packages\\microsoft.aspnetcore.openapi\\9.0.1\\microsoft.aspnetcore.openapi.9.0.1.nupkg.sha512",

@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "D:\\Devops tools\\Jenkins version2\\version pull images\\WebApiProject\\WebApiProject.csproj": {}
+    "D:\\Devops tools\\jenkins version azure\\WebApiProject\\WebApiProject.csproj": {}
   },
   "projects": {
-    "D:\\Devops tools\\Jenkins version2\\version pull images\\WebApiProject\\WebApiProject.csproj": {
+    "D:\\Devops tools\\jenkins version azure\\WebApiProject\\WebApiProject.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\Devops tools\\Jenkins version2\\version pull images\\WebApiProject\\WebApiProject.csproj",
+        "projectUniqueName": "D:\\Devops tools\\jenkins version azure\\WebApiProject\\WebApiProject.csproj",
         "projectName": "WebApiProject",
-        "projectPath": "D:\\Devops tools\\Jenkins version2\\version pull images\\WebApiProject\\WebApiProject.csproj",
+        "projectPath": "D:\\Devops tools\\jenkins version azure\\WebApiProject\\WebApiProject.csproj",
         "packagesPath": "C:\\Users\\cholw\\.nuget\\packages\\",
-        "outputPath": "D:\\Devops tools\\Jenkins version2\\version pull images\\WebApiProject\\obj\\",
+        "outputPath": "D:\\Devops tools\\jenkins version azure\\WebApiProject\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\cholw\\AppData\\Roaming\\NuGet\\NuGet.Config",
@@ -89,7 +89,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.104/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.105/PortableRuntimeIdentifierGraph.json"
         }
       }
     }

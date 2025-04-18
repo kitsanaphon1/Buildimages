@@ -15,7 +15,7 @@ pipeline {
 
         stage('Build Docker image') {
             steps {
-                sh "docker build --network=host -t ${IMAGE_NAME}:${VERSION} -t ${IMAGE_NAME}:latest ."
+                sh "docker build --network=host -t ${IMAGE_NAME}:latest ."
             }
         }
 
@@ -35,7 +35,6 @@ pipeline {
 
         stage('Push to Docker Hub') {
             steps {
-                sh "docker push ${IMAGE_NAME}:${VERSION}"
                 sh "docker push ${IMAGE_NAME}:latest"
             }
         }
