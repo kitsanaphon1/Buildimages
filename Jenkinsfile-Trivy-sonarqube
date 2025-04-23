@@ -10,12 +10,6 @@ pipeline {
     }
 
     stages {
-        stage('Clone source code') {
-            steps {
-                git branch: 'deploy', url: 'https://github.com/kitsanaphon1/Buildimages.git'
-            }
-        }
-
         stage('SonarQube Scan') {
             steps {
                 sh '''
