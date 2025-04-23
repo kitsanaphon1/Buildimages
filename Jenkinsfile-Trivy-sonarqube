@@ -1,0 +1,77 @@
+pipeline {
+    agent any  // ใช้ agent ใดก็ได้ที่ Jenkins มีอยู่
+
+    environment {
+        VERSION = "${BUILD_NUMBER}"  // ใช้หมายเลข Build ปัจจุบันเป็นเวอร์ชันของ Image
+        IMAGE_NAME = "sooyaa02/testbuildimages"  // ชื่อ Docker image
+        SONAR_PROJECT_KEY = "buildimages-myapi"  // รหัส Project Key ที่ตั้งไว้ใน SonarQube
+        SONAR_HOST_URL = "http://4.145.80.147:9000"  // URL ของ SonarQube Server
+        SONAR_TOKEN = credentials('sonarqubekey')  // ดึง Token จาก Jenkins Credentials (Secret Text)
+    }
+
+    stages {
+        stage('Clone source code') {
+            steps {
+                // Clone โค้ดจาก branch 'deploy' ใน GitHub Repo
+                git branch: 'deploy', url: 'https://github.com/kitsanaphon1/Buildimages.git'
+            }
+        }
+
+        stage('SonarQube Scan') {
+            steps {
+                // สแกนซอร์สโค้ดด้วย SonarQube Scanner ผ่าน Docker
+                sh '''
+                    echo "[INFO] Running SonarQube analysis..."
+                    docker run --rm \
+                      -v $PWD:/usr/src \  // mount โฟลเดอร์โปรเจกต์เข้า container
+                      sonarsource/sonar-scanner-cli \
+                      -Dsonar.projectKey=$SONAR_PROJECT_KEY \  // ตั้งค่า project key
+                      -Dsonar.sources=. \  // สแกนซอร์สทั้งหมดในโฟลเดอร์ปัจจุบัน
+                      -Dsonar.host.url=$SONAR_HOST_URL \  // ใช้ SonarQube server
+                      -Dsonar.login=$SONAR_TOKEN  // ส่ง Token เพื่อ authenticate
+                '''
+            }
+        }
+
+        stage('Build Docker image') {
+            steps {
+                // สร้าง Docker image ใหม่จาก Dockerfile ในโปรเจกต์
+                sh "docker build --network=host -t ${IMAGE_NAME}:latest ."
+            }
+        }
+
+        stage('Trivy Scan') {
+            steps {
+                // สแกนความปลอดภัยของ Docker image ด้วย Trivy
+                sh '''
+                    echo "[INFO] Scanning Docker image with Trivy..."
+                    docker run --rm \
+                      -v /var/run/docker.sock:/var/run/docker.sock \  // ให้ container เข้าถึง Docker engine
+                      aquasec/trivy image ${IMAGE_NAME}:latest
+                '''
+            }
+        }
+
+        stage('Login to Docker Hub') {
+            steps {
+                // ล็อกอินเข้าสู่ Docker Hub ด้วย Credential ที่เก็บไว้ใน Jenkins
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: '12345',  // ID ของ Docker Hub credentials
+                        usernameVariable: 'DOCKER_USER',
+                        passwordVariable: 'DOCKER_PASS'
+                    )
+                ]) {
+                    sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+                }
+            }
+        }
+
+        stage('Push to Docker Hub') {
+            steps {
+                // Push Docker image ที่ build แล้วขึ้น Docker Hub
+                sh "docker push ${IMAGE_NAME}:latest"
+            }
+        }
+    }
+}
