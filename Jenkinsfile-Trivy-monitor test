@@ -1,27 +1,30 @@
 pipeline {
-    agent any
+    agent any // ใช้ agent ใดก็ได้ที่ Jenkins สามารถรันได้
 
     environment {
-        VERSION = "${BUILD_NUMBER}"
-        IMAGE_NAME = "sooyaa02/testbuildimages"
-        SCAN_LOG = "trivy-scan.log"
+        VERSION = "${BUILD_NUMBER}"              // ใช้เลข build ของ Jenkins เป็น version
+        IMAGE_NAME = "sooyaa02/testbuildimages"  // กำหนดชื่อ Docker image
+        SCAN_LOG = "trivy-scan.log"              // ชื่อไฟล์ log สำหรับเก็บผลลัพธ์จาก Trivy
     }
 
     stages {
         stage('Clone source code') {
             steps {
+                // Clone source code จาก branch 'deploy' ของ GitHub repository
                 git branch: 'deploy', url: 'https://github.com/kitsanaphon1/Buildimages.git'
             }
         }
 
         stage('Build Docker image') {
             steps {
+                // Build Docker image โดยใช้ network host และแท็กชื่อ image
                 sh "docker build --network=host -t ${IMAGE_NAME}:latest ."
             }
         }
 
         stage('Trivy Scan') {
             steps {
+                // ใช้ Trivy scan Docker image และบันทึกผลลัพธ์ลงไฟล์ log
                 sh '''
                     echo "[INFO] Scanning Docker image with Trivy..."
                     docker run --rm \
@@ -33,9 +36,10 @@ pipeline {
 
         stage('Login to Docker Hub') {
             steps {
+                // Login เข้าสู่ Docker Hub ด้วย credentials ที่ตั้งไว้ใน Jenkins (credentialsId: '12345')
                 withCredentials([
                     usernamePassword(
-                        credentialsId: '12345',
+                        credentialsId: '12345', // เปลี่ยนเป็น ID ของ Jenkins Credentials ที่คุณสร้างไว้
                         usernameVariable: 'DOCKER_USER',
                         passwordVariable: 'DOCKER_PASS'
                     )
@@ -47,6 +51,7 @@ pipeline {
 
         stage('Push to Docker Hub') {
             steps {
+                // Push Docker image ที่ build แล้วไปยัง Docker Hub
                 sh "docker push ${IMAGE_NAME}:latest"
             }
         }
@@ -54,18 +59,19 @@ pipeline {
 
     post {
         always {
+            // ส่งอีเมลแจ้งผลทุกครั้ง ไม่ว่าจะสำเร็จหรือล้มเหลว พร้อมแนบ log จาก Trivy Scan
             emailext (
-    to: 'cholwww01@gmail.com',
-    subject: "Jenkins Trivy Scan Report: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-    body: """\
+                to: 'cholwww01@gmail.com', // อีเมลผู้รับ
+                subject: "Jenkins Trivy Scan Report: ${env.JOB_NAME} #${env.BUILD_NUMBER}", // หัวข้ออีเมล
+                body: """\
 <b>Build Result:</b> ${currentBuild.currentResult}<br>
 <b>Project:</b> ${env.JOB_NAME}<br>
 <b>Build Number:</b> ${env.BUILD_NUMBER}<br>
 <b>Log file is attached.</b>
 """,
-    attachmentsPattern: "${SCAN_LOG}",
-    mimeType: 'text/html'
-)
+                attachmentsPattern: "${SCAN_LOG}", // แนบไฟล์ log ที่สร้างจาก Trivy
+                mimeType: 'text/html' // แสดงผลในอีเมลแบบ HTML
+            )
         }
     }
 }
