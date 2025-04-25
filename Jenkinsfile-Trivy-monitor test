@@ -4,6 +4,7 @@ pipeline {
     environment {
         VERSION = "${BUILD_NUMBER}"
         IMAGE_NAME = "sooyaa02/testbuildimages"
+        SCAN_RESULT_FILE = "trivy-result.json"
     }
 
     stages {
@@ -21,54 +22,48 @@ pipeline {
 
         stage('Trivy Scan') {
             steps {
-                sh """
+                sh '''
                     echo "[INFO] Scanning Docker image with Trivy..."
                     docker run --rm \
                       -v /var/run/docker.sock:/var/run/docker.sock \
-                      -v "${env.WORKSPACE}:/output" \
-                      aquasec/trivy image \
-                      --format json \
-                      -o /output/trivy-result.json \
-                      ${IMAGE_NAME}:latest
-
-                    echo "[INFO] List of files in workspace:"
-                    ls -lh "${env.WORKSPACE}"
-                """
+                      -v $(pwd):/root/.cache/ \
+                      aquasec/trivy image --format json -o trivy-result.json ${IMAGE_NAME}:latest
+                '''
             }
         }
 
-        stage('Summarize Vulnerabilities') {
+        stage('Parse Trivy Result') {
             steps {
                 script {
-                    // ต้องใช้ plugin: Pipeline Utility Steps
-                    def trivy = readJSON file: "${env.WORKSPACE}/trivy-result.json"
-                    def counts = [:]
+                    def scanJson = readJSON file: "${env.SCAN_RESULT_FILE}"
+                    def severities = ['LOW': 0, 'MEDIUM': 0, 'HIGH': 0, 'CRITICAL': 0]
 
-                    trivy.Results.each { result ->
+                    scanJson.Results.each { result ->
                         result.Vulnerabilities?.each { vuln ->
-                            def sev = vuln.Severity
-                            counts[sev] = (counts[sev] ?: 0) + 1
+                            def sev = vuln.Severity.toUpperCase()
+                            if (severities.containsKey(sev)) {
+                                severities[sev] += 1
+                            }
                         }
                     }
 
-                    def summaryText = new StringBuilder()
-                    summaryText << "📦 Docker Image: ${IMAGE_NAME}:latest\n"
-                    summaryText << "✅ Build images เสร็จเรียบร้อย\n"
-                    summaryText << "🔍 Vulnerabilities summary:\n"
-                    counts.each { k, v -> summaryText << "• ${k}: ${v}\n" }
-
-                    writeFile file: 'trivy-summary.txt', text: summaryText.toString()
+                    env.LOW_COUNT = severities.LOW.toString()
+                    env.MEDIUM_COUNT = severities.MEDIUM.toString()
+                    env.HIGH_COUNT = severities.HIGH.toString()
+                    env.CRITICAL_COUNT = severities.CRITICAL.toString()
                 }
             }
         }
 
         stage('Login to Docker Hub') {
             steps {
-                withCredentials([usernamePassword(
-                    credentialsId: '12345',
-                    usernameVariable: 'DOCKER_USER',
-                    passwordVariable: 'DOCKER_PASS'
-                )]) {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: '12345',
+                        usernameVariable: 'DOCKER_USER',
+                        passwordVariable: 'DOCKER_PASS'
+                    )
+                ]) {
                     sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
                 }
             }
@@ -82,23 +77,24 @@ pipeline {
     }
 
     post {
-        success {
-            script {
-                def summary = readFile('trivy-summary.txt')
-                emailext(
-                    subject: "✅ Build Success: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                    body: """
-                        <p><b>Build สำเร็จแล้วสำหรับ:</b> ${env.JOB_NAME} #${env.BUILD_NUMBER}</p>
-                        <p>📦 <b>Docker Image:</b> ${IMAGE_NAME}:latest</p>
-                        <p>🔍 <b>Trivy Vulnerabilities Summary:</b></p>
-                        <pre>${summary}</pre>
-                        <p><a href="${env.BUILD_URL}">🔗 ดูรายละเอียดใน Jenkins</a></p>
-                    """,
-                    mimeType: 'text/html',
-                    attachmentsPattern: 'trivy-result.json',
-                    to: 'cholwww01@gmail.com'
-                )
-            }
+        always {
+            emailext(
+                subject: "Trivy Scan Report for ${env.IMAGE_NAME}:${env.VERSION}",
+                body: """
+                    <h3>Trivy Scan Summary</h3>
+                    <p>Docker Image: <b>${env.IMAGE_NAME}:latest</b></p>
+                    <ul>
+                        <li><b>Low:</b> ${env.LOW_COUNT}</li>
+                        <li><b>Medium:</b> ${env.MEDIUM_COUNT}</li>
+                        <li><b>High:</b> ${env.HIGH_COUNT}</li>
+                        <li><b>Critical:</b> ${env.CRITICAL_COUNT}</li>
+                    </ul>
+                    <p>See attached Trivy JSON log for details.</p>
+                """,
+                to: 'cholwww01@gmail.com',
+                mimeType: 'text/html',
+                attachmentsPattern: 'trivy-result.json'
+            )
         }
     }
 }
