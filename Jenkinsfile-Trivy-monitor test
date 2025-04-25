@@ -4,7 +4,6 @@ pipeline {
     environment {
         VERSION = "${BUILD_NUMBER}"
         IMAGE_NAME = "sooyaa02/testbuildimages"
-        SCAN_RESULT_FILE = "trivy-result.json"
     }
 
     stages {
@@ -24,35 +23,10 @@ pipeline {
             steps {
                 sh '''
                     echo "[INFO] Scanning Docker image with Trivy..."
-                    echo "[DEBUG] Current directory: $(pwd)"
                     docker run --rm \
                       -v /var/run/docker.sock:/var/run/docker.sock \
-                      -v $(pwd):/root/.cache/ \
-                      aquasec/trivy image --format json -o trivy-result.json ${IMAGE_NAME}:latest
+                      aquasec/trivy image ${IMAGE_NAME}:latest > trivy-scan.log
                 '''
-            }
-        }
-
-        stage('Parse Trivy Result') {
-            steps {
-                script {
-                    def scanJson = readJSON file: "${env.SCAN_RESULT_FILE}"
-                    def severities = ['LOW': 0, 'MEDIUM': 0, 'HIGH': 0, 'CRITICAL': 0]
-
-                    scanJson.Results.each { result ->
-                        result.Vulnerabilities?.each { vuln ->
-                            def sev = vuln.Severity.toUpperCase()
-                            if (severities.containsKey(sev)) {
-                                severities[sev] += 1
-                            }
-                        }
-                    }
-
-                    env.LOW_COUNT = severities.LOW.toString()
-                    env.MEDIUM_COUNT = severities.MEDIUM.toString()
-                    env.HIGH_COUNT = severities.HIGH.toString()
-                    env.CRITICAL_COUNT = severities.CRITICAL.toString()
-                }
             }
         }
 
@@ -80,21 +54,14 @@ pipeline {
     post {
         always {
             emailext(
-                subject: "🛡 Trivy Scan Report: ${IMAGE_NAME}:${VERSION}",
+                subject: "🔍 Trivy Scan Log for ${IMAGE_NAME}:${VERSION}",
                 body: """
-                    <h3>📝 Trivy Scan Summary</h3>
-                    <p><strong>Docker Image:</strong> ${IMAGE_NAME}:latest</p>
-                    <ul>
-                        <li><strong>Low:</strong> ${env.LOW_COUNT}</li>
-                        <li><strong>Medium:</strong> ${env.MEDIUM_COUNT}</li>
-                        <li><strong>High:</strong> ${env.HIGH_COUNT}</li>
-                        <li><strong>Critical:</strong> ${env.CRITICAL_COUNT}</li>
-                    </ul>
-                    <p>📎 รายงานแนบ: <code>${env.SCAN_RESULT_FILE}</code></p>
+                    <p>Attached is the Trivy scan log for Docker image: <b>${IMAGE_NAME}:latest</b></p>
+                    <p>Please review the attached <code>trivy-scan.log</code> for vulnerability details.</p>
                 """,
                 to: 'cholwww01@gmail.com',
                 mimeType: 'text/html',
-                attachmentsPattern: 'trivy-result.json'
+                attachmentsPattern: 'trivy-scan.log'
             )
         }
     }
