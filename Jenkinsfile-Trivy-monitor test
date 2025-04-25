@@ -22,14 +22,10 @@ pipeline {
         stage('Trivy Scan') {
             steps {
                 sh '''
-                    echo "[INFO] Scanning Docker image with Trivy and saving HTML report..."
+                    echo "[INFO] Scanning Docker image with Trivy..."
                     docker run --rm \
                       -v /var/run/docker.sock:/var/run/docker.sock \
-                      -v $(pwd):/output \
-                      aquasec/trivy image \
-                      --format table \
-                      -o /output/trivy-report.html \
-                      ${IMAGE_NAME}:latest
+                      aquasec/trivy image ${IMAGE_NAME}:latest > trivy-result.txt
                 '''
             }
         }
@@ -54,27 +50,18 @@ pipeline {
     }
 
     post {
-        success {
+        always {
             emailext(
-                subject: "Build Success: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                body: '<p>Build สำเร็จแล้ว</p>' +
-                      '<p><b>Project:</b> ${env.JOB_NAME}<br>' +
-                      '<b>Build:</b> #${env.BUILD_NUMBER}</p>' +
-                      '<p><a href="${env.BUILD_URL}">ดูรายละเอียด</a></p>',
+                subject: "Build ${currentBuild.currentResult}: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: """
+                    <p><b>Status:</b> ${currentBuild.currentResult}</p>
+                    <p><b>Project:</b> ${env.JOB_NAME}</p>
+                    <p><b>Build:</b> #${env.BUILD_NUMBER}</p>
+                    <p><a href="${env.BUILD_URL}">Click to view full log</a></p>
+                    <p>Trivy scan results attached.</p>
+                """,
                 mimeType: 'text/html',
-                attachmentsPattern: 'trivy-report.html',
-                to: 'cholwww01@gmail.com'
-            )
-        }
-        failure {
-            emailext(
-                subject: "Build Failed: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                body: '<p>เกิดข้อผิดพลาดใน Pipeline!</p>' +
-                      '<p><b>Project:</b> ${env.JOB_NAME}<br>' +
-                      '<b>Build:</b> #${env.BUILD_NUMBER}</p>' +
-                      '<p><a href="${env.BUILD_URL}">คลิกดู log</a></p>',
-                mimeType: 'text/html',
-                attachmentsPattern: 'trivy-report.html',
+                attachmentsPattern: 'trivy-result.txt',
                 to: 'cholwww01@gmail.com'
             )
         }
