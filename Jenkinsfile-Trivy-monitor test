@@ -19,30 +19,28 @@ pipeline {
             }
         }
 
-        stage('Trivy Scan') {
-            steps {
-                sh '''
-                    echo "[INFO] Scanning Docker image with Trivy..."
-                    docker run --rm \
-                      -v /var/run/docker.sock:/var/run/docker.sock \
-                      -v $(pwd):/output \
-                      aquasec/trivy image \
-                      --format json \
-                      -o /output/trivy-result.json \
-                      ${IMAGE_NAME}:latest
+    stage('Trivy Scan') {
+        steps {
+        sh """
+            echo "[INFO] Scanning Docker image with Trivy..."
+            docker run --rm \
+              -v /var/run/docker.sock:/var/run/docker.sock \
+              -v "${env.WORKSPACE}:/output" \
+              aquasec/trivy image \
+              --format json \
+              -o /output/trivy-result.json \
+              ${IMAGE_NAME}:latest
 
-                    # Extract summary counts using jq
-                    jq '[.Results[].Vulnerabilities[]? | .Severity] | group_by(.) | map({ (.[0]): length }) | add' \
-                      trivy-result.json > vuln-summary.json
+            jq '[.Results[].Vulnerabilities[]? | .Severity] | group_by(.) | map({ (.[0]): length }) | add' \
+              trivy-result.json > vuln-summary.json
 
-                    # Prepare plain-text report
-                    echo "📦 Docker Image: ${IMAGE_NAME}:latest" > trivy-summary.txt
-                    echo "✅ Build images เสร็จเรียบร้อย" >> trivy-summary.txt
-                    echo "🔍 Vulnerabilities summary:" >> trivy-summary.txt
-                    jq -r 'to_entries[] | "• " + .key + ": " + (.value|tostring)' vuln-summary.json >> trivy-summary.txt
-                '''
-            }
-        }
+            echo "📦 Docker Image: ${IMAGE_NAME}:latest" > trivy-summary.txt
+            echo "✅ Build images เสร็จเรียบร้อย" >> trivy-summary.txt
+            echo "🔍 Vulnerabilities summary:" >> trivy-summary.txt
+            jq -r 'to_entries[] | "• " + .key + ": " + (.value|tostring)' vuln-summary.json >> trivy-summary.txt
+        """
+    }
+}
 
         stage('Login to Docker Hub') {
             steps {
