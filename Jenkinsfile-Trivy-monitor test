@@ -79,17 +79,17 @@ pipeline {
     post {
         always {
             emailext(
-                subject: "Trivy Scan Report for ${env.IMAGE_NAME}:${env.VERSION}",
+                subject: "🛡 Trivy Scan Report: ${IMAGE_NAME}:${VERSION}",
                 body: """
-                    <h3>Trivy Scan Summary</h3>
-                    <p>Docker Image: <b>${env.IMAGE_NAME}:latest</b></p>
+                    <h3>📝 Trivy Scan Summary</h3>
+                    <p><strong>Docker Image:</strong> ${IMAGE_NAME}:latest</p>
                     <ul>
-                        <li><b>Low:</b> ${env.LOW_COUNT}</li>
-                        <li><b>Medium:</b> ${env.MEDIUM_COUNT}</li>
-                        <li><b>High:</b> ${env.HIGH_COUNT}</li>
-                        <li><b>Critical:</b> ${env.CRITICAL_COUNT}</li>
+                        <li><strong>Low:</strong> ${env.LOW_COUNT}</li>
+                        <li><strong>Medium:</strong> ${env.MEDIUM_COUNT}</li>
+                        <li><strong>High:</strong> ${env.HIGH_COUNT}</li>
+                        <li><strong>Critical:</strong> ${env.CRITICAL_COUNT}</li>
                     </ul>
-                    <p>See attached Trivy JSON log for details.</p>
+                    <p>📎 รายงานแนบ: <code>${env.SCAN_RESULT_FILE}</code></p>
                 """,
                 to: 'cholwww01@gmail.com',
                 mimeType: 'text/html',
