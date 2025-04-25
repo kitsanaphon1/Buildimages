@@ -19,28 +19,44 @@ pipeline {
             }
         }
 
-    stage('Trivy Scan') {
-        steps {
-        sh """
-            echo "[INFO] Scanning Docker image with Trivy..."
-            docker run --rm \
-              -v /var/run/docker.sock:/var/run/docker.sock \
-              -v "${env.WORKSPACE}:/output" \
-              aquasec/trivy image \
-              --format json \
-              -o /output/trivy-result.json \
-              ${IMAGE_NAME}:latest
+        stage('Trivy Scan') {
+            steps {
+                sh """
+                    echo "[INFO] Scanning Docker image with Trivy..."
+                    docker run --rm \
+                      -v /var/run/docker.sock:/var/run/docker.sock \
+                      -v "${env.WORKSPACE}:/output" \
+                      aquasec/trivy image \
+                      --format json \
+                      -o /output/trivy-result.json \
+                      ${IMAGE_NAME}:latest
+                """
+            }
+        }
 
-            jq '[.Results[].Vulnerabilities[]? | .Severity] | group_by(.) | map({ (.[0]): length }) | add' \
-              trivy-result.json > vuln-summary.json
+        stage('Summarize Vulnerabilities') {
+            steps {
+                script {
+                    def trivy = readJSON file: 'trivy-result.json'
+                    def counts = [:]
 
-            echo "📦 Docker Image: ${IMAGE_NAME}:latest" > trivy-summary.txt
-            echo "✅ Build images เสร็จเรียบร้อย" >> trivy-summary.txt
-            echo "🔍 Vulnerabilities summary:" >> trivy-summary.txt
-            jq -r 'to_entries[] | "• " + .key + ": " + (.value|tostring)' vuln-summary.json >> trivy-summary.txt
-        """
-    }
-}
+                    // รวมจำนวนแต่ละ Severity
+                    trivy.Results.each { result ->
+                        result.Vulnerabilities?.each { vuln ->
+                            def sev = vuln.Severity
+                            counts[sev] = (counts[sev] ?: 0) + 1
+                        }
+                    }
+
+                    // เขียนสรุปลงไฟล์
+                    def summaryFile = new File("${env.WORKSPACE}/trivy-summary.txt")
+                    summaryFile.text = "📦 Docker Image: ${IMAGE_NAME}:latest\n"
+                    summaryFile << "✅ Build images เสร็จเรียบร้อย\n"
+                    summaryFile << "🔍 Vulnerabilities summary:\n"
+                    counts.each { k, v -> summaryFile << "• ${k}: ${v}\n" }
+                }
+            }
+        }
 
         stage('Login to Docker Hub') {
             steps {
