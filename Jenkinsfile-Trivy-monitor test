@@ -30,6 +30,9 @@ pipeline {
                       --format json \
                       -o /output/trivy-result.json \
                       ${IMAGE_NAME}:latest
+
+                    echo "[INFO] List of files in workspace:"
+                    ls -lh "${env.WORKSPACE}"
                 """
             }
         }
@@ -37,10 +40,10 @@ pipeline {
         stage('Summarize Vulnerabilities') {
             steps {
                 script {
-                    def trivy = readJSON file: 'trivy-result.json'
+                    // ต้องใช้ plugin: Pipeline Utility Steps
+                    def trivy = readJSON file: "${env.WORKSPACE}/trivy-result.json"
                     def counts = [:]
 
-                    // รวมจำนวนแต่ละ Severity
                     trivy.Results.each { result ->
                         result.Vulnerabilities?.each { vuln ->
                             def sev = vuln.Severity
@@ -48,12 +51,13 @@ pipeline {
                         }
                     }
 
-                    // เขียนสรุปลงไฟล์
-                    def summaryFile = new File("${env.WORKSPACE}/trivy-summary.txt")
-                    summaryFile.text = "📦 Docker Image: ${IMAGE_NAME}:latest\n"
-                    summaryFile << "✅ Build images เสร็จเรียบร้อย\n"
-                    summaryFile << "🔍 Vulnerabilities summary:\n"
-                    counts.each { k, v -> summaryFile << "• ${k}: ${v}\n" }
+                    def summaryText = new StringBuilder()
+                    summaryText << "📦 Docker Image: ${IMAGE_NAME}:latest\n"
+                    summaryText << "✅ Build images เสร็จเรียบร้อย\n"
+                    summaryText << "🔍 Vulnerabilities summary:\n"
+                    counts.each { k, v -> summaryText << "• ${k}: ${v}\n" }
+
+                    writeFile file: 'trivy-summary.txt', text: summaryText.toString()
                 }
             }
         }
