@@ -2,6 +2,7 @@ pipeline {
     agent any
 
     environment {
+        // กำหนดตัวแปรเวอร์ชันและชื่อ image
         VERSION = "${BUILD_NUMBER}"
         IMAGE_NAME = "sooyaa02/testbuildimages"
     }
@@ -9,29 +10,34 @@ pipeline {
     stages {
         stage('Clone source code') {
             steps {
+                // ดึง source code จาก GitHub branch 'deploy'
                 git branch: 'deploy', url: 'https://github.com/kitsanaphon1/Buildimages.git'
             }
         }
 
         stage('Build Docker image') {
             steps {
+                // สร้าง Docker image จาก Dockerfile
                 sh "docker build --network=host -t ${IMAGE_NAME}:latest ."
             }
         }
 
         stage('Trivy Scan') {
             steps {
+                // สแกน security vulnerabilities ด้วย Trivy และบันทึกเป็น HTML report
                 sh '''
-                    echo "[INFO] Scanning Docker image with Trivy..."
+                    echo "[INFO] Scanning Docker image with Trivy and saving HTML report..."
                     docker run --rm \
                       -v /var/run/docker.sock:/var/run/docker.sock \
-                      aquasec/trivy image ${IMAGE_NAME}:latest
+                      -v $(pwd):/output \
+                      aquasec/trivy image --format template --template "@contrib/html.tpl" -o /output/trivy-report.html ${IMAGE_NAME}:latest
                 '''
             }
         }
 
         stage('Login to Docker Hub') {
             steps {
+                // ล็อกอินเข้า Docker Hub ด้วย Jenkins credentials
                 withCredentials([
                     usernamePassword(
                         credentialsId: '12345',
@@ -46,6 +52,7 @@ pipeline {
 
         stage('Push to Docker Hub') {
             steps {
+                // ส่ง Docker image ขึ้น Docker Hub
                 sh "docker push ${IMAGE_NAME}:latest"
             }
         }
@@ -53,24 +60,28 @@ pipeline {
 
     post {
         success {
+            // เมื่อ build สำเร็จ → ส่งอีเมลพร้อมแนบไฟล์ trivy-report.html
             emailext(
-                subject: "✅ Build Success: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                body: """<p>Build สำเร็จแล้ว 🎉</p>
-                         <p><b>Project:</b> ${env.JOB_NAME}<br>
-                         <b>Build:</b> #${env.BUILD_NUMBER}</p>
-                         <p>🔗 <a href="${env.BUILD_URL}">ดูรายละเอียด</a></p>""",
+                subject: "Build Success: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: '<p>Build สำเร็จแล้ว</p>' +
+                      '<p><b>Project:</b> ${env.JOB_NAME}<br>' +
+                      '<b>Build:</b> #${env.BUILD_NUMBER}</p>' +
+                      '<p><a href="${env.BUILD_URL}">ดูรายละเอียด</a></p>',
                 mimeType: 'text/html',
+                attachmentsPattern: 'trivy-report.html',
                 to: 'cholwww01@gmail.com'
             )
         }
         failure {
+            // เมื่อ build ล้มเหลว → ส่งอีเมลพร้อมแนบรายงาน Trivy
             emailext(
-                subject: "❌ Build Failed: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                body: """<p><b>เกิดข้อผิดพลาดใน Pipeline!</b></p>
-                         <p><b>Project:</b> ${env.JOB_NAME}<br>
-                         <b>Build:</b> #${env.BUILD_NUMBER}</p>
-                         <p>⚠️ <a href="${env.BUILD_URL}">คลิกดู log</a></p>""",
+                subject: "Build Failed: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: '<p>เกิดข้อผิดพลาดใน Pipeline!</p>' +
+                      '<p><b>Project:</b> ${env.JOB_NAME}<br>' +
+                      '<b>Build:</b> #${env.BUILD_NUMBER}</p>' +
+                      '<p><a href="${env.BUILD_URL}">คลิกดู log</a></p>',
                 mimeType: 'text/html',
+                attachmentsPattern: 'trivy-report.html',
                 to: 'cholwww01@gmail.com'
             )
         }
