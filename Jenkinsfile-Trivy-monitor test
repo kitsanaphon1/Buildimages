@@ -24,6 +24,7 @@ pipeline {
             steps {
                 sh '''
                     echo "[INFO] Scanning Docker image with Trivy..."
+                    echo "[DEBUG] Current directory: $(pwd)"
                     docker run --rm \
                       -v /var/run/docker.sock:/var/run/docker.sock \
                       -v $(pwd):/root/.cache/ \
