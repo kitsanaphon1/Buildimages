@@ -25,7 +25,7 @@ pipeline {
                     echo "[INFO] Scanning Docker image with Trivy..."
                     docker run --rm \
                       -v /var/run/docker.sock:/var/run/docker.sock \
-                      aquasec/trivy image ${IMAGE_NAME}:latest
+                      aquasec/trivy image ${IMAGE_NAME}:latest > trivy-scan.log
                 '''
             }
         }
@@ -48,6 +48,21 @@ pipeline {
             steps {
                 sh "docker push ${IMAGE_NAME}:latest"
             }
+        }
+    }
+
+    post {
+        always {
+            emailext(
+                subject: "🔍 Trivy Scan Log for ${IMAGE_NAME}:${VERSION}",
+                body: """
+                    <p>Attached is the Trivy scan log for Docker image: <b>${IMAGE_NAME}:latest</b></p>
+                    <p>Please review the attached <code>trivy-scan.log</code> for vulnerability details.</p>
+                """,
+                to: 'cholwww01@gmail.com',
+                mimeType: 'text/html',
+                attachmentsPattern: 'trivy-scan.log'
+            )
         }
     }
 }
