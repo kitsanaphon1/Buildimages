@@ -4,6 +4,7 @@ pipeline {
     environment {
         VERSION = "${BUILD_NUMBER}"
         IMAGE_NAME = "sooyaa02/testbuildimages"
+        SCAN_LOG = "trivy-scan.log"
     }
 
     stages {
@@ -25,7 +26,7 @@ pipeline {
                     echo "[INFO] Scanning Docker image with Trivy..."
                     docker run --rm \
                       -v /var/run/docker.sock:/var/run/docker.sock \
-                      aquasec/trivy image ${IMAGE_NAME}:latest > trivy-scan.log
+                      aquasec/trivy image ${IMAGE_NAME}:latest | tee ${SCAN_LOG}
                 '''
             }
         }
@@ -53,15 +54,17 @@ pipeline {
 
     post {
         always {
-            emailext(
-                subject: "🔍 Trivy Scan Log for ${IMAGE_NAME}:${VERSION}",
-                body: """
-                    <p>Attached is the Trivy scan log for Docker image: <b>${IMAGE_NAME}:latest</b></p>
-                    <p>Please review the attached <code>trivy-scan.log</code> for vulnerability details.</p>
-                """,
-                to: 'cholwww01@gmail.com',
-                mimeType: 'text/html',
-                attachmentsPattern: 'trivy-scan.log'
+            emailext (
+                subject: "Jenkins Trivy Scan Report: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: """\
+<b>Build Result:</b> ${currentBuild.currentResult}<br>
+<b>Project:</b> ${env.JOB_NAME}<br>
+<b>Build Number:</b> ${env.BUILD_NUMBER}<br>
+<b>Log file is attached.</b>
+""",
+                recipientProviders: [[$class: 'DevelopersRecipientProvider']],
+                attachmentsPattern: "${SCAN_LOG}",
+                mimeType: 'text/html'
             )
         }
     }
