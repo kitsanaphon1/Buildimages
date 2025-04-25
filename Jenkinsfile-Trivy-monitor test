@@ -32,8 +32,8 @@ pipeline {
                       ${IMAGE_NAME}:latest
 
                     # Extract summary counts using jq
-                    jq '[.Results[].Vulnerabilities[]? | .Severity] | group_by(.) | map({ (.[0]): length }) | add' \
-                      trivy-result.json > vuln-summary.json
+                     jq '[.Results[].Vulnerabilities[]? | .Severity] | group_by(.) | map({ (.[0]): length }) | add' \
+              trivy-result.json > vuln-summary.json
 
                     # Prepare plain-text report
                     echo "📦 Docker Image: ${IMAGE_NAME}:latest" > trivy-summary.txt
