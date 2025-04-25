@@ -32,14 +32,14 @@ pipeline {
                       ${IMAGE_NAME}:latest
 
                     # Extract summary counts using jq
-                     jq '[.Results[].Vulnerabilities[]? | .Severity] | group_by(.) | map({ (.[0]): length }) | add' \
-              trivy-result.json > vuln-summary.json
+                    jq '[.Results[].Vulnerabilities[]? | .Severity] | group_by(.) | map({ (.[0]): length }) | add' \
+                      trivy-result.json > vuln-summary.json
 
                     # Prepare plain-text report
                     echo "📦 Docker Image: ${IMAGE_NAME}:latest" > trivy-summary.txt
                     echo "✅ Build images เสร็จเรียบร้อย" >> trivy-summary.txt
                     echo "🔍 Vulnerabilities summary:" >> trivy-summary.txt
-                    jq -r 'to_entries[] | "• \(.key): \(.value)"' vuln-summary.json >> trivy-summary.txt
+                    jq -r 'to_entries[] | "• " + .key + ": " + (.value|tostring)' vuln-summary.json >> trivy-summary.txt
                 '''
             }
         }
@@ -65,19 +65,22 @@ pipeline {
 
     post {
         success {
-            emailext(
-                subject: "✅ Build Success: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                body: """
-                    <p><b>Build สำเร็จแล้วสำหรับ:</b> ${env.JOB_NAME} #${env.BUILD_NUMBER}</p>
-                    <p>📦 <b>Docker Image:</b> ${IMAGE_NAME}:latest</p>
-                    <p>🔍 <b>Trivy Vulnerabilities Summary:</b></p>
-                    <pre>${readFile('trivy-summary.txt')}</pre>
-                    <p><a href="${env.BUILD_URL}">🔗 ดูรายละเอียดใน Jenkins</a></p>
-                """,
-                mimeType: 'text/html',
-                attachmentsPattern: 'trivy-result.json',
-                to: 'cholwww01@gmail.com'
-            )
+            script {
+                def summary = readFile('trivy-summary.txt')
+                emailext(
+                    subject: "✅ Build Success: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                    body: """
+                        <p><b>Build สำเร็จแล้วสำหรับ:</b> ${env.JOB_NAME} #${env.BUILD_NUMBER}</p>
+                        <p>📦 <b>Docker Image:</b> ${IMAGE_NAME}:latest</p>
+                        <p>🔍 <b>Trivy Vulnerabilities Summary:</b></p>
+                        <pre>${summary}</pre>
+                        <p><a href="${env.BUILD_URL}">🔗 ดูรายละเอียดใน Jenkins</a></p>
+                    """,
+                    mimeType: 'text/html',
+                    attachmentsPattern: 'trivy-result.json',
+                    to: 'cholwww01@gmail.com'
+                )
+            }
         }
     }
 }
