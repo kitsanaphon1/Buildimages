@@ -49,21 +49,20 @@ pipeline {
         }
     }
 
-    post {
-        always {
-            emailext(
-                subject: "Build ${currentBuild.currentResult}: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                body: """
-                    <p><b>Status:</b> ${currentBuild.currentResult}</p>
-                    <p><b>Project:</b> ${env.JOB_NAME}</p>
-                    <p><b>Build:</b> #${env.BUILD_NUMBER}</p>
-                    <p><a href="${env.BUILD_URL}">Click to view full log</a></p>
-                    <p>Trivy scan results attached.</p>
-                """,
-                mimeType: 'text/html',
-                attachmentsPattern: 'trivy-result.txt',
-                to: 'cholwww01@gmail.com'
-            )
-        }
+   post {
+    always {
+        emailext(
+            subject: "Build ${currentBuild.currentResult}: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+            body: """
+                เกิดข้อผิดพลาดใน Pipeline!<br><br>
+                <b>Project:</b> ${env.JOB_NAME}<br>
+                <b>Build:</b> #${env.BUILD_NUMBER}<br><br>
+                <a href="${env.BUILD_URL}">คลิกดู log</a>
+            """,
+            mimeType: 'text/html',
+            attachmentsPattern: 'trivy-result.txt',
+            to: 'cholwww01@gmail.com'
+        )
     }
+}
 }
