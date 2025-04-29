@@ -3,8 +3,7 @@ pipeline {
 
     environment {
         IMAGE_NAME = "sooyaa02/testbuildimages"
-        SCAN_JSON = "trivy-result.json"
-        EXPORTER_RESULT_PATH = "/opt/trivy/result.json" // ต้องตรงกับ docker-compose mount
+        EXPORTER_RESULT_PATH = "/opt/trivy/result.json"
     }
 
     stages {
@@ -27,17 +26,7 @@ pipeline {
             steps {
                 sh '''
                     echo "[INFO] Scanning Docker image using Trivy CLI..."
-                    trivy image --format json --timeout 5m ${IMAGE_NAME}:latest > ${SCAN_JSON}
-                '''
-            }
-        }
-
-        stage('Copy Scan Result to Exporter Volume') {
-            steps {
-                sh '''
-                    echo "[INFO] Copying scan result to Trivy Exporter volume..."
-                    mkdir -p $(dirname ${EXPORTER_RESULT_PATH})
-                    cp ${SCAN_JSON} ${EXPORTER_RESULT_PATH}
+                    trivy image --format json --timeout 5m ${IMAGE_NAME}:latest > ${EXPORTER_RESULT_PATH}
                 '''
             }
         }
@@ -46,7 +35,7 @@ pipeline {
             steps {
                 withCredentials([
                     usernamePassword(
-                        credentialsId: '12345', // <-- อย่าลืมตั้ง Jenkins Credentials ไว้
+                        credentialsId: '12345',
                         usernameVariable: 'DOCKER_USER',
                         passwordVariable: 'DOCKER_PASS'
                     )
@@ -78,9 +67,10 @@ pipeline {
 <b>Build Result:</b> ${currentBuild.currentResult}<br>
 <b>Project:</b> ${env.JOB_NAME}<br>
 <b>Build Number:</b> ${env.BUILD_NUMBER}<br>
-<b>Trivy scan result is available and metrics have been exported to Prometheus.</b>
+<b>Trivy scan result has been written to: ${EXPORTER_RESULT_PATH}</b><br>
+<b>Metrics should now appear in Prometheus & Grafana.</b>
 """,
-                attachmentsPattern: "${SCAN_JSON}",
+                attachmentsPattern: "${EXPORTER_RESULT_PATH}",
                 mimeType: 'text/html'
             )
         }
