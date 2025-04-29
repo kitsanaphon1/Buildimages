@@ -22,17 +22,16 @@ pipeline {
         }
 
         stage('Trivy Scan via Docker') {
-            steps {
-                sh '''
-                    echo "[INFO] Scanning with Trivy Server via Docker..."
-                    docker run --rm \
-                        aquasec/trivy \
-                        --remote ${TRIVY_SERVER} \
-                        image --format table --timeout 5m ${IMAGE_NAME}:latest \
-                        | tee ${SCAN_LOG}
-                '''
-            }
-        }
+    steps {
+        sh '''
+            echo "[INFO] Scanning with Trivy Server via Docker..."
+            docker run --rm aquasec/trivy \
+              image --server http://host.docker.internal:4954 \
+              --format table --timeout 5m sooyaa02/testbuildimages:latest \
+              | tee ${SCAN_LOG}
+        '''
+    }
+}
 
         stage('Login to Docker Hub') {
             steps {
