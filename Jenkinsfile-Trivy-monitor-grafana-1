@@ -4,40 +4,52 @@ pipeline {
     environment {
         VERSION = "${BUILD_NUMBER}"
         IMAGE_NAME = "sooyaa02/testbuildimages"
-        SCAN_LOG = "trivy-scan.log"
-        TRIVY_SERVER = "http://10.1.0.4:4954" // ใช้ host.docker.internal เพราะ Jenkins อยู่บน host
+        SCAN_JSON = "trivy-result.json"
+        TRIVY_SERVER_URL = "http://localhost:4954"
+        EXPORTER_PATH = "/opt/trivy/data/result.json" // ตรงกับ path ที่ exporter อ่าน
     }
 
     stages {
-        stage('Clone source code') {
+        stage('Clone Source Code') {
             steps {
                 git branch: 'deploy', url: 'https://github.com/kitsanaphon1/Buildimages.git'
             }
         }
 
-        stage('Build Docker image') {
+        stage('Build Docker Image') {
             steps {
-                sh "docker build --network=host -t ${IMAGE_NAME}:latest ."
+                sh "docker build -t ${IMAGE_NAME}:latest ."
             }
         }
 
-        stage('Trivy Scan via Docker') {
-    steps {
-        sh '''
-            echo "[INFO] Scanning with Trivy Server via Docker..."
-            docker run --rm aquasec/trivy \
-              image --server http://host.docker.internal:4954 \
-              --format table --timeout 5m sooyaa02/testbuildimages:latest \
-              | tee ${SCAN_LOG}
-        '''
-    }
-}
+        stage('Trivy Scan via Trivy Server') {
+            steps {
+                sh '''
+                    echo "[INFO] Scanning Docker image with Trivy Server..."
+                    docker run --rm \
+                      aquasec/trivy image \
+                      --server ${TRIVY_SERVER_URL} \
+                      --format json \
+                      --timeout 5m \
+                      ${IMAGE_NAME}:latest > ${SCAN_JSON}
+                '''
+            }
+        }
+
+        stage('Copy Result to Exporter Volume') {
+            steps {
+                sh """
+                    echo "[INFO] Copying scan result to Exporter shared volume..."
+                    cp ${SCAN_JSON} ${EXPORTER_PATH}
+                """
+            }
+        }
 
         stage('Login to Docker Hub') {
             steps {
                 withCredentials([
                     usernamePassword(
-                        credentialsId: '12345',  // เปลี่ยนเป็น Jenkins Credentials ID ของคุณ
+                        credentialsId: '12345',
                         usernameVariable: 'DOCKER_USER',
                         passwordVariable: 'DOCKER_PASS'
                     )
@@ -47,7 +59,7 @@ pipeline {
             }
         }
 
-        stage('Push to Docker Hub') {
+        stage('Push Docker Image') {
             steps {
                 sh "docker push ${IMAGE_NAME}:latest"
             }
@@ -63,9 +75,9 @@ pipeline {
 <b>Build Result:</b> ${currentBuild.currentResult}<br>
 <b>Project:</b> ${env.JOB_NAME}<br>
 <b>Build Number:</b> ${env.BUILD_NUMBER}<br>
-<b>Log file is attached.</b>
+<b>Trivy scan result has been delivered to Prometheus Exporter.</b>
 """,
-                attachmentsPattern: "${SCAN_LOG}",
+                attachmentsPattern: "${SCAN_JSON}",
                 mimeType: 'text/html'
             )
         }
