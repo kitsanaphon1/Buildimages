@@ -1,0 +1,75 @@
+pipeline {
+    agent any
+
+    environment {
+        VERSION = "${BUILD_NUMBER}"              // ใช้เลข build ของ Jenkins เป็น version
+        IMAGE_NAME = "sooyaa02/testbuildimages"  // กำหนดชื่อ Docker image
+        SCAN_LOG = "trivy-scan.log"              // ชื่อไฟล์ log สำหรับเก็บผลลัพธ์จาก Trivy
+        TRIVY_SERVER = "http://4.145.80.147:4954" // <<< ระบุ IP ของเครื่องที่รัน trivy-server
+    }
+
+    stages {
+        stage('Clone source code') {
+            steps {
+                git branch: 'deploy', url: 'https://github.com/kitsanaphon1/Buildimages.git'
+            }
+        }
+
+        stage('Build Docker image') {
+            steps {
+                sh "docker build --network=host -t ${IMAGE_NAME}:latest ."
+            }
+        }
+
+        stage('Trivy Scan') {
+            steps {
+                sh '''
+                    echo "[INFO] Scanning Docker image with Trivy Server..."
+                    docker run --rm \
+                      -v /var/run/docker.sock:/var/run/docker.sock \
+                      aquasec/trivy:latest client \
+                      --remote ${TRIVY_SERVER} \
+                      --format table \
+                      ${IMAGE_NAME}:latest | tee ${SCAN_LOG}
+                '''
+            }
+        }
+
+        stage('Login to Docker Hub') {
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: '12345',
+                        usernameVariable: 'DOCKER_USER',
+                        passwordVariable: 'DOCKER_PASS'
+                    )
+                ]) {
+                    sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+                }
+            }
+        }
+
+        stage('Push to Docker Hub') {
+            steps {
+                sh "docker push ${IMAGE_NAME}:latest"
+            }
+        }
+    }
+
+    post {
+        always {
+            emailext (
+                to: 'cholwww01@gmail.com',
+                subject: "Jenkins Trivy Scan Report: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: """\
+<b>Build Result:</b> ${currentBuild.currentResult}<br>
+<b>Project:</b> ${env.JOB_NAME}<br>
+<b>Build Number:</b> ${env.BUILD_NUMBER}<br>
+<b>Log file is attached.</b>
+""",
+                attachmentsPattern: "${SCAN_LOG}",
+                mimeType: 'text/html'
+            )
+        }
+    }
+}
