@@ -1,0 +1,39 @@
+name: Trivy Scan
+
+on:
+  push:
+    branches: [deploy]
+  pull_request:
+
+jobs:
+  trivy:
+    name: Scan Docker Image with Trivy
+    runs-on: ubuntu-latest
+
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Build Docker image
+        run: |
+          docker build --network=host -t your-image-name:latest .
+
+      - name: Run Trivy scan in Docker and save SARIF
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v ${{ github.workspace }}:/root/.cache/ \
+            aquasec/trivy image \
+              --format sarif \
+              -o /root/.cache/trivy-results.sarif \
+              your-image-name:latest
+
+      - name: Upload SARIF file to GitHub Security Dashboard
+        uses: github/codeql-action/upload-sarif@v3  # ✅ updated version
+        with:
+          sarif_file: trivy-results.sarif
