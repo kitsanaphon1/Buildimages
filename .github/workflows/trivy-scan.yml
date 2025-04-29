@@ -2,7 +2,7 @@ name: Trivy Scan
 
 on:
   push:
-    branches: [deploy]  # หรือสาขาอื่นที่คุณอยากให้ scan เช่น deploy
+    branches: [deploy]
   pull_request:
 
 jobs:
@@ -13,25 +13,25 @@ jobs:
     permissions:
       actions: read
       contents: read
-      security-events: write  # สำคัญมาก ต้องมีเพื่ออัปโหลดผลลัพธ์เข้า GitHub Security
+      security-events: write
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Install Trivy
-        run: |
-          sudo apt-get install wget -y
-          wget https://github.com/aquasecurity/trivy/releases/latest/download/trivy_0.50.1_Linux-64bit.deb
-          sudo dpkg -i trivy_0.50.1_Linux-64bit.deb
-
       - name: Build Docker image
         run: |
           docker build --network=host -t your-image-name:latest .
 
-      - name: Run Trivy scan and save SARIF
+      - name: Run Trivy in Docker and save SARIF
         run: |
-          trivy image --format sarif -o trivy-results.sarif your-image-name:latest
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v $(pwd):/root/.cache/ \
+            aquasec/trivy image \
+              --format sarif \
+              -o trivy-results.sarif \
+              your-image-name:latest
 
       - name: Upload SARIF file to GitHub Security Dashboard
         uses: github/codeql-action/upload-sarif@v2
