@@ -5,7 +5,7 @@ pipeline {
         VERSION = "${BUILD_NUMBER}"
         IMAGE_NAME = "sooyaa02/testbuildimages"
         SCAN_LOG = "trivy-scan.log"
-        TRIVY_SERVER = "http://localhost:4954" // URL ของ Trivy server ที่รันอยู่
+        TRIVY_SERVER = "http://trivy-grafana_trivy-server_1:4954" // URL ของ Trivy server ที่รันอยู่
     }
 
     stages {
