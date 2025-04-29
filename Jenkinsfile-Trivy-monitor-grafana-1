@@ -5,8 +5,8 @@ pipeline {
         VERSION = "${BUILD_NUMBER}"
         IMAGE_NAME = "sooyaa02/testbuildimages"
         SCAN_JSON = "trivy-result.json"
+        EXPORTER_RESULT_PATH = "/opt/trivy/result.json"  // Path จริงที่ Trivy Exporter รออ่าน
         TRIVY_SERVER_URL = "http://localhost:4954"
-        EXPORTER_PATH = "/opt/trivy/data/result.json" // ตรงกับ path ที่ exporter อ่าน
     }
 
     stages {
@@ -26,8 +26,7 @@ pipeline {
             steps {
                 sh '''
                     echo "[INFO] Scanning Docker image with Trivy Server..."
-                    docker run --rm \
-                      aquasec/trivy image \
+                    docker run --rm aquasec/trivy image \
                       --server ${TRIVY_SERVER_URL} \
                       --format json \
                       --timeout 5m \
@@ -38,10 +37,11 @@ pipeline {
 
         stage('Copy Result to Exporter Volume') {
             steps {
-                sh """
-                    echo "[INFO] Copying scan result to Exporter shared volume..."
-                    cp ${SCAN_JSON} ${EXPORTER_PATH}
-                """
+                sh '''
+                    echo "[INFO] Copying Trivy scan result to Exporter shared volume..."
+                    mkdir -p $(dirname ${EXPORTER_RESULT_PATH})
+                    cp ${SCAN_JSON} ${EXPORTER_RESULT_PATH}
+                '''
             }
         }
 
