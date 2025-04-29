@@ -2,15 +2,13 @@ pipeline {
     agent any
 
     environment {
-        VERSION = "${BUILD_NUMBER}"
         IMAGE_NAME = "sooyaa02/testbuildimages"
         SCAN_JSON = "trivy-result.json"
-        EXPORTER_RESULT_PATH = "/opt/trivy/result.json"  // Path จริงที่ Trivy Exporter รออ่าน
-        TRIVY_SERVER_URL = "http://localhost:4954"
+        EXPORTER_RESULT_PATH = "/opt/trivy/result.json" // ต้องตรงกับ docker-compose mount
     }
 
     stages {
-        stage('Clone Source Code') {
+        stage('Clone Source') {
             steps {
                 git branch: 'deploy', url: 'https://github.com/kitsanaphon1/Buildimages.git'
             }
@@ -18,27 +16,26 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                sh "docker build -t ${IMAGE_NAME}:latest ."
-            }
-        }
-
-        stage('Trivy Scan via Trivy Server') {
-            steps {
                 sh '''
-                    echo "[INFO] Scanning Docker image with Trivy Server..."
-                    docker run --rm aquasec/trivy image \
-                      --server ${TRIVY_SERVER_URL} \
-                      --format json \
-                      --timeout 5m \
-                      ${IMAGE_NAME}:latest > ${SCAN_JSON}
+                    echo "[INFO] Building Docker image..."
+                    docker build -t ${IMAGE_NAME}:latest .
                 '''
             }
         }
 
-        stage('Copy Result to Exporter Volume') {
+        stage('Scan Docker Image with Trivy') {
             steps {
                 sh '''
-                    echo "[INFO] Copying Trivy scan result to Exporter shared volume..."
+                    echo "[INFO] Scanning Docker image using Trivy CLI..."
+                    trivy image --format json --timeout 5m ${IMAGE_NAME}:latest > ${SCAN_JSON}
+                '''
+            }
+        }
+
+        stage('Copy Scan Result to Exporter Volume') {
+            steps {
+                sh '''
+                    echo "[INFO] Copying scan result to Trivy Exporter volume..."
                     mkdir -p $(dirname ${EXPORTER_RESULT_PATH})
                     cp ${SCAN_JSON} ${EXPORTER_RESULT_PATH}
                 '''
@@ -49,19 +46,25 @@ pipeline {
             steps {
                 withCredentials([
                     usernamePassword(
-                        credentialsId: '12345',
+                        credentialsId: '12345', // <-- อย่าลืมตั้ง Jenkins Credentials ไว้
                         usernameVariable: 'DOCKER_USER',
                         passwordVariable: 'DOCKER_PASS'
                     )
                 ]) {
-                    sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+                    sh '''
+                        echo "[INFO] Logging into Docker Hub..."
+                        echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+                    '''
                 }
             }
         }
 
         stage('Push Docker Image') {
             steps {
-                sh "docker push ${IMAGE_NAME}:latest"
+                sh '''
+                    echo "[INFO] Pushing Docker image to Docker Hub..."
+                    docker push ${IMAGE_NAME}:latest
+                '''
             }
         }
     }
@@ -70,12 +73,12 @@ pipeline {
         always {
             emailext (
                 to: 'cholwww01@gmail.com',
-                subject: "Jenkins Trivy Scan Report: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                subject: "Jenkins Build & Trivy Scan Report: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
                 body: """\
 <b>Build Result:</b> ${currentBuild.currentResult}<br>
 <b>Project:</b> ${env.JOB_NAME}<br>
 <b>Build Number:</b> ${env.BUILD_NUMBER}<br>
-<b>Trivy scan result has been delivered to Prometheus Exporter.</b>
+<b>Trivy scan result is available and metrics have been exported to Prometheus.</b>
 """,
                 attachmentsPattern: "${SCAN_JSON}",
                 mimeType: 'text/html'
