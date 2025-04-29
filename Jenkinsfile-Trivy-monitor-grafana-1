@@ -5,7 +5,7 @@ pipeline {
         VERSION = "${BUILD_NUMBER}"
         IMAGE_NAME = "sooyaa02/testbuildimages"
         SCAN_LOG = "trivy-scan.log"
-        TRIVY_SERVER = "http://host.docker.internal:4954" // ใช้ host.docker.internal เพราะ Jenkins อยู่บน host
+        TRIVY_SERVER = "http://10.1.0.4:4954" // ใช้ host.docker.internal เพราะ Jenkins อยู่บน host
     }
 
     stages {
