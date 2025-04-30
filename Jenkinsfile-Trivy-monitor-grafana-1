@@ -22,6 +22,15 @@ pipeline {
             }
         }
 
+        stage('Ensure jq Installed') {
+            steps {
+                sh '''
+                    echo "[INFO] Ensuring jq is installed..."
+                    which jq || (apt-get update && apt-get install -y jq) || (apk add --no-cache jq)
+                '''
+            }
+        }
+
         stage('Scan Docker Image with Trivy') {
             steps {
                 sh '''
@@ -85,7 +94,8 @@ pipeline {
 <b>Trivy Vulnerability Summary:</b><br>
 <pre>${vulnSummary}</pre>
 """,
-                    mimeType: 'text/html'
+                    mimeType: 'text/html',
+                    attachLog: true
                 )
             }
         }
