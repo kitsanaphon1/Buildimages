@@ -1,0 +1,82 @@
+pipeline {
+    agent any
+
+    environment {
+        IMAGE_NAME = "sooyaa02/testbuildimages"
+        EXPORTER_RESULT_PATH = "/opt/trivy/result.json"
+    }
+
+    stages {
+        stage('Clone Source') {
+            steps {
+                git branch: 'deploy', url: 'https://github.com/kitsanaphon1/Buildimages.git'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                sh '''
+                    echo "[INFO] Building Docker image..."
+                    docker build -t ${IMAGE_NAME}:latest .
+                '''
+            }
+        }
+
+        stage('Scan Docker Image with Trivy') {
+            steps {
+                sh '''
+                    echo "[INFO] Scanning Docker image using Trivy CLI..."
+                    trivy image --format json --timeout 5m ${IMAGE_NAME}:latest > ${EXPORTER_RESULT_PATH}
+                    cp ${EXPORTER_RESULT_PATH} trivy-result.json
+                '''
+            }
+        }
+
+        stage('Login to Docker Hub') {
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: '12345',
+                        usernameVariable: 'DOCKER_USER',
+                        passwordVariable: 'DOCKER_PASS'
+                    )
+                ]) {
+                    sh '''
+                        echo "[INFO] Logging into Docker Hub..."
+                        echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+                    '''
+                }
+            }
+        }
+
+        stage('Push Docker Image') {
+            steps {
+                sh '''
+                    echo "[INFO] Pushing Docker image to Docker Hub..."
+                    docker push ${IMAGE_NAME}:latest
+                '''
+            }
+        }
+    }
+
+    post {
+        always {
+            emailext (
+                to: 'cholwww01@gmail.com',
+                subject: "Jenkins Build & Trivy Scan Report: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: """\
+<b>Build Result:</b> ${currentBuild.currentResult}<br>
+<b>Project:</b> ${env.JOB_NAME}<br>
+<b>Build Number:</b> ${env.BUILD_NUMBER}<br><br>
+<b>Trivy scan result has been written to:</b><br>
+<code>${EXPORTER_RESULT_PATH}</code><br><br>
+<b>Metrics should now appear in Prometheus & Grafana via Trivy Exporter.</b><br>
+Attached: JSON scan result and Jenkins build log.
+""",
+                mimeType: 'text/html',
+                attachmentsPattern: 'trivy-result.json',
+                attachLog: true
+            )
+        }
+    }
+}
