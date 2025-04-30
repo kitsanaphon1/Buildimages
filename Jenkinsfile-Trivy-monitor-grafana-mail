@@ -59,8 +59,11 @@ pipeline {
         }
     }
 
-    post {
+     post {
         always {
+            // Copy result.json ไปยัง workspace เพื่อให้แนบไฟล์ได้
+            sh 'cp ${EXPORTER_RESULT_PATH} trivy-result.json || true'
+
             emailext (
                 to: 'cholwww01@gmail.com',
                 subject: "Jenkins Build & Trivy Scan Report: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
