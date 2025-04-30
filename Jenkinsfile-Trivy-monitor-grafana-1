@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         IMAGE_NAME = "sooyaa02/testbuildimages"
-        EXPORTER_RESULT_PATH = "/opt/trivy/result.json"
+        TRIVY_OUTPUT = "trivy-result.json"
     }
 
     stages {
@@ -26,7 +26,7 @@ pipeline {
             steps {
                 sh '''
                     echo "[INFO] Scanning Docker image using Trivy CLI..."
-                    trivy image --format json --timeout 5m ${IMAGE_NAME}:latest > ${EXPORTER_RESULT_PATH}
+                    trivy image --format json --timeout 5m ${IMAGE_NAME}:latest > ${TRIVY_OUTPUT}
                 '''
             }
         }
@@ -67,10 +67,10 @@ pipeline {
 <b>Build Result:</b> ${currentBuild.currentResult}<br>
 <b>Project:</b> ${env.JOB_NAME}<br>
 <b>Build Number:</b> ${env.BUILD_NUMBER}<br>
-<b>Trivy scan result has been written to: ${EXPORTER_RESULT_PATH}</b><br>
-<b>Metrics should now appear in Prometheus & Grafana.</b>
+<b>Trivy scan result is attached as a JSON file.</b><br>
+<b>Metrics are also exposed via Trivy Exporter to Prometheus/Grafana.</b>
 """,
-                attachmentsPattern: "${EXPORTER_RESULT_PATH}",
+                attachmentsPattern: 'trivy-result.json',
                 mimeType: 'text/html'
             )
         }
