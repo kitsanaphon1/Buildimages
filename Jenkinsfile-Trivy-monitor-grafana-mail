@@ -59,27 +59,23 @@ pipeline {
         }
     }
 
-    post {
+   post {
     always {
         sh '''
-            echo "--- FILE COPY ---"
             cp /opt/trivy/result.json trivy-result.json || true
-            echo "--- VERIFY ---"
-            ls -lah
-            du -h trivy-result.json || true
+            zip -j trivy-result.zip trivy-result.json || true
         '''
 
         emailext (
             to: 'cholwww01@gmail.com',
-            subject: "Jenkins Build & Trivy Scan Report: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+            subject: "Jenkins Trivy Scan Report: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
             body: """\
 <b>Build Result:</b> ${currentBuild.currentResult}<br>
-<b>Trivy JSON saved to:</b> <code>/opt/trivy/result.json</code><br>
-<b>Attached:</b> Jenkins log + JSON (copied)
+<b>Attached:</b> Trivy JSON (as ZIP) + Jenkins log
 """,
-            mimeType: 'text/html',
-            attachmentsPattern: 'trivy-result.json',
-            attachLog: true
+            attachmentsPattern: 'trivy-result.zip',
+            attachLog: true,
+            mimeType: 'text/html'
         )
     }
 }
