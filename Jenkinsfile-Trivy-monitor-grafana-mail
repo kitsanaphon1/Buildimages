@@ -59,27 +59,29 @@ pipeline {
         }
     }
 
-     post {
-        always {
-            // Copy result.json ไปยัง workspace เพื่อให้แนบไฟล์ได้
-            sh 'cp ${EXPORTER_RESULT_PATH} trivy-result.json || true'
+    post {
+    always {
+        sh '''
+            echo "--- FILE COPY ---"
+            cp /opt/trivy/result.json trivy-result.json || true
+            echo "--- VERIFY ---"
+            ls -lah
+            du -h trivy-result.json || true
+        '''
 
-            emailext (
-                to: 'cholwww01@gmail.com',
-                subject: "Jenkins Build & Trivy Scan Report: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                body: """\
+        emailext (
+            to: 'cholwww01@gmail.com',
+            subject: "Jenkins Build & Trivy Scan Report: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+            body: """\
 <b>Build Result:</b> ${currentBuild.currentResult}<br>
-<b>Project:</b> ${env.JOB_NAME}<br>
-<b>Build Number:</b> ${env.BUILD_NUMBER}<br><br>
-<b>Trivy scan result has been written to:</b><br>
-<code>${EXPORTER_RESULT_PATH}</code><br><br>
-<b>Metrics should now appear in Prometheus & Grafana via Trivy Exporter.</b><br>
-Attached: JSON scan result and Jenkins build log.
+<b>Trivy JSON saved to:</b> <code>/opt/trivy/result.json</code><br>
+<b>Attached:</b> Jenkins log + JSON (copied)
 """,
-                mimeType: 'text/html',
-                attachmentsPattern: 'trivy-result.json',
-                attachLog: true
-            )
-        }
+            mimeType: 'text/html',
+            attachmentsPattern: 'trivy-result.json',
+            attachLog: true
+        )
     }
+}
+
 }
