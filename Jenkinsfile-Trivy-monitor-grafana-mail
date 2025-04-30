@@ -2,32 +2,42 @@ pipeline {
     agent any
 
     environment {
+        VERSION = "${BUILD_NUMBER}"
         IMAGE_NAME = "sooyaa02/testbuildimages"
-        EXPORTER_RESULT_PATH = "/opt/trivy/result.json"
+        SCAN_LOG = "trivy-scan.log"
+        TRIVY_JSON = "/opt/trivy/result.json" // สำหรับ Grafana/Prometheus
     }
 
     stages {
-        stage('Clone Source') {
+        stage('Clone source code') {
             steps {
                 git branch: 'deploy', url: 'https://github.com/kitsanaphon1/Buildimages.git'
             }
         }
 
-        stage('Build Docker Image') {
+        stage('Build Docker image') {
             steps {
-                sh '''
-                    echo "[INFO] Building Docker image..."
-                    docker build -t ${IMAGE_NAME}:latest .
-                '''
+                sh "docker build --network=host -t ${IMAGE_NAME}:latest ."
             }
         }
 
-        stage('Scan Docker Image with Trivy') {
+        stage('Trivy Scan') {
             steps {
                 sh '''
-                    echo "[INFO] Scanning Docker image using Trivy CLI..."
-                    trivy image --format json --timeout 5m ${IMAGE_NAME}:latest > ${EXPORTER_RESULT_PATH}
-                    cp ${EXPORTER_RESULT_PATH} trivy-result.json
+                    echo "[INFO] Scanning with Trivy..."
+
+                    # สแกนแบบ JSON เพื่อให้ Trivy Exporter อ่านไปใช้ใน Grafana
+                    docker run --rm \
+                      -v /var/run/docker.sock:/var/run/docker.sock \
+                      -v /opt/trivy:/opt/trivy \
+                      aquasec/trivy image \
+                      --format json --timeout 5m ${IMAGE_NAME}:latest \
+                      > /opt/trivy/result.json
+
+                    # สแกนแบบ human-readable log สำหรับส่งทาง email
+                    docker run --rm \
+                      -v /var/run/docker.sock:/var/run/docker.sock \
+                      aquasec/trivy image ${IMAGE_NAME}:latest | tee trivy-scan.log
                 '''
             }
         }
@@ -41,37 +51,33 @@ pipeline {
                         passwordVariable: 'DOCKER_PASS'
                     )
                 ]) {
-                    sh '''
-                        echo "[INFO] Logging into Docker Hub..."
-                        echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
-                    '''
+                    sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
                 }
             }
         }
 
-        stage('Push Docker Image') {
+        stage('Push to Docker Hub') {
             steps {
-                sh '''
-                    echo "[INFO] Pushing Docker image to Docker Hub..."
-                    docker push ${IMAGE_NAME}:latest
-                '''
+                sh "docker push ${IMAGE_NAME}:latest"
             }
         }
     }
 
-   post {
-    always {
-        emailext (
-            to: 'cholwww01@gmail.com',
-            subject: "Jenkins Trivy Scan Report: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-            body: """\
+    post {
+        always {
+            emailext (
+                to: 'cholwww01@gmail.com',
+                subject: "Jenkins Trivy Scan Report: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: """\
 <b>Build Result:</b> ${currentBuild.currentResult}<br>
-<b>Trivy Scan Log is attached below.</b>
+<b>Project:</b> ${env.JOB_NAME}<br>
+<b>Build Number:</b> ${env.BUILD_NUMBER}<br>
+<b>Log file (for human review) is attached below.</b><br>
+<b>Metrics JSON exported to:</b> <code>/opt/trivy/result.json</code>
 """,
-            attachmentsPattern: 'trivy-scan.log', // แนบไฟล์ .log แทน
-            mimeType: 'text/html'
-        )
+                attachmentsPattern: "${SCAN_LOG}",
+                mimeType: 'text/html'
+            )
+        }
     }
-}
-
 }
