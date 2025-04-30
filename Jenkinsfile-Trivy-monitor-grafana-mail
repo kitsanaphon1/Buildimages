@@ -61,20 +61,14 @@ pipeline {
 
    post {
     always {
-        sh '''
-            cp /opt/trivy/result.json trivy-result.json || true
-            zip -j trivy-result.zip trivy-result.json || true
-        '''
-
         emailext (
             to: 'cholwww01@gmail.com',
             subject: "Jenkins Trivy Scan Report: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
             body: """\
 <b>Build Result:</b> ${currentBuild.currentResult}<br>
-<b>Attached:</b> Trivy JSON (as ZIP) + Jenkins log
+<b>Trivy Scan Log is attached below.</b>
 """,
-            attachmentsPattern: 'trivy-result.zip',
-            attachLog: true,
+            attachmentsPattern: 'trivy-scan.log', // แนบไฟล์ .log แทน
             mimeType: 'text/html'
         )
     }
