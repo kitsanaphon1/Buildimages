@@ -27,6 +27,19 @@ pipeline {
                 sh '''
                     echo "[INFO] Scanning Docker image using Trivy CLI..."
                     trivy image --format json --timeout 5m ${IMAGE_NAME}:latest > ${TRIVY_OUTPUT}
+
+                    # Extract vulnerability counts per severity using jq
+                    CRITICAL=$(jq '[.Results[].Vulnerabilities[]? | select(.Severity=="CRITICAL")] | length' ${TRIVY_OUTPUT})
+                    HIGH=$(jq '[.Results[].Vulnerabilities[]? | select(.Severity=="HIGH")] | length' ${TRIVY_OUTPUT})
+                    MEDIUM=$(jq '[.Results[].Vulnerabilities[]? | select(.Severity=="MEDIUM")] | length' ${TRIVY_OUTPUT})
+                    LOW=$(jq '[.Results[].Vulnerabilities[]? | select(.Severity=="LOW")] | length' ${TRIVY_OUTPUT})
+                    UNKNOWN=$(jq '[.Results[].Vulnerabilities[]? | select(.Severity=="UNKNOWN")] | length' ${TRIVY_OUTPUT})
+
+                    echo "CRITICAL=$CRITICAL" > vuln-summary.txt
+                    echo "HIGH=$HIGH" >> vuln-summary.txt
+                    echo "MEDIUM=$MEDIUM" >> vuln-summary.txt
+                    echo "LOW=$LOW" >> vuln-summary.txt
+                    echo "UNKNOWN=$UNKNOWN" >> vuln-summary.txt
                 '''
             }
         }
@@ -60,19 +73,21 @@ pipeline {
 
     post {
         always {
-            emailext (
-                to: 'cholwww01@gmail.com',
-                subject: "Jenkins Build & Trivy Scan Report: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                body: """\
+            script {
+                def vulnSummary = fileExists('vuln-summary.txt') ? readFile('vuln-summary.txt') : "No summary available"
+                emailext (
+                    to: 'cholwww01@gmail.com',
+                    subject: "Trivy Scan Report: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                    body: """\
 <b>Build Result:</b> ${currentBuild.currentResult}<br>
 <b>Project:</b> ${env.JOB_NAME}<br>
-<b>Build Number:</b> ${env.BUILD_NUMBER}<br>
-<b>Trivy scan result is attached as a JSON file.</b><br>
-<b>Metrics are also exposed via Trivy Exporter to Prometheus/Grafana.</b>
+<b>Build Number:</b> ${env.BUILD_NUMBER}<br><br>
+<b>Trivy Vulnerability Summary:</b><br>
+<pre>${vulnSummary}</pre>
 """,
-                attachmentsPattern: 'trivy-result.json',
-                mimeType: 'text/html'
-            )
+                    mimeType: 'text/html'
+                )
+            }
         }
     }
 }
